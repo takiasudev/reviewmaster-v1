@@ -1,0 +1,38 @@
+# ReviewMaster CloudFormation パラメータ設定ファイル (Nested Template)
+
+# 【重要】実際の社内IP範囲に変更してください（CIDR形式、カンマ区切り）
+# 例: "192.168.1.0/24,10.0.0.0/16"
+AllowedIpRanges="0.0.0.0/0"
+
+# リソース名の接頭辞（オプション）例: "mycompany-"
+ResourcePrefix=""
+
+# リソース名の接尾辞（オプション）例: "-v1", "-prod"
+ResourceSuffix=""
+
+# クロスリージョン推論の推論プロファイル
+BedrockModelArn="arn:aws:bedrock:ap-northeast-1:123456789:inference-profile/apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+# RAG検索用のARN
+RagModelArn="apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+
+# CloudWatchログ保持期間（日数）
+LogRetentionDays="7"
+
+# ネストテンプレートのベースURL（S3バケットURL - 自動設定されます）
+# 例: "https://your-cf-templates-bucket.s3.amazonaws.com/reviewmaster"
+TemplateBaseUrl=""
+
+# CloudFrontドメイン（Phase 2で自動設定されます）
+CloudFrontDomain=""
+
+# カスタムタグ設定（使用しない場合は空文字）
+CustomTagName1="CostCenter"
+CustomTagValue1="IT-Department"
+CustomTagName2="Owner"
+CustomTagValue2="ReviewMaster-Team"
+CustomTagName3=""
+CustomTagValue3=""
+CustomTagName4=""
+CustomTagValue4="" 

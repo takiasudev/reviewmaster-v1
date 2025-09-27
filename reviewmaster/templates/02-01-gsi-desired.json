@@ -1,0 +1,40 @@
+{
+  "tables": [
+    {
+      "resolve": { "cfnOutputKey": "UnifiedTableName" },
+      "attributeTypes": { "PK": "S", "SK": "S", "category_name": "S", "current_status": "S", "project_id": "S" },
+      "billingMode": "PROVISIONED",
+      "indexes": [
+        {
+          "IndexName": "GSI_Currentstatus",
+          "KeySchema": [
+            { "AttributeName": "current_status", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_Categoryname",
+          "KeySchema": [
+            { "AttributeName": "category_name", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_ProjectId",
+          "KeySchema": [
+            { "AttributeName": "project_id", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        }
+      ]
+    }
+  ]
+}
+
+

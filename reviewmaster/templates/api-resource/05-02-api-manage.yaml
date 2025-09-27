@@ -1,0 +1,871 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster API Manage Module - /manage endpoint resources and methods'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # API Gateway References
+  RestApiId:
+    Type: String
+    Description: "REST API ID from API Gateway module"
+    
+  RestApiRootResourceId:
+    Type: String
+    Description: "REST API Root Resource ID from API Gateway module"
+    
+  # Lambda Function Reference
+  ConfigManagerLambdaArn:
+    Type: String
+    Description: "Config Manager Lambda Function ARN from Compute module"
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # === ROOT LEVEL RESOURCE ===
+
+  # /manage リソース
+  ManageResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref RestApiRootResourceId
+      PathPart: "manage"
+
+  # === MANAGE HIERARCHY RESOURCES ===
+
+  # /manage/projects リソース
+  ManageProjectsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageResource
+      PathPart: "projects"
+
+  # /manage/projects/{project_id} リソース
+  ManageProjectIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageProjectsResource
+      PathPart: "{project_id}"
+
+  # /manage/projects/{project_id}/categories リソース
+  ManageProjectCategoriesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageProjectIdResource
+      PathPart: "categories"
+
+  # /manage/projects/{project_id}/categories/{category_id} リソース
+  ManageProjectCategoryIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageProjectCategoriesResource
+      PathPart: "{category_id}"
+
+  # /manage/common-categories リソース
+  ManageCommonCategoriesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageResource
+      PathPart: "common-categories"
+
+  # /manage/common-categories/{category_id} リソース
+  ManageCommonCategoryIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageCommonCategoriesResource
+      PathPart: "{category_id}"
+
+  # /manage/review-perspectives リソース
+  ManageReviewPerspectivesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageResource
+      PathPart: "review-perspectives"
+
+  # /manage/review-perspectives/{perspective_id} リソース
+  ManageReviewPerspectiveIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageReviewPerspectivesResource
+      PathPart: "{perspective_id}"
+
+  # /manage/rag-settings リソース
+  ManageRagSettingsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageResource
+      PathPart: "rag-settings"
+
+  # /manage/rag-settings/{rag_id} リソース
+  ManageRagSettingIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageRagSettingsResource
+      PathPart: "{rag_id}"
+
+  # /manage/projects/{project_id}/prompt-template リソース
+  ManageProjectPromptTemplateResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref ManageProjectIdResource
+      PathPart: "prompt-template"
+
+  # === METHODS ===
+
+  # /manage/projects GET Method
+  ManageProjectsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects POST Method
+  ManageProjectsPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id} DELETE Method
+  ManageProjectIdDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/categories GET Method
+  ManageProjectCategoriesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectCategoriesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/categories POST Method
+  ManageProjectCategoriesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectCategoriesResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/categories/{category_id} DELETE Method
+  ManageProjectCategoryIdDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectCategoryIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/common-categories GET Method
+  ManageCommonCategoriesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageCommonCategoriesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/common-categories POST Method
+  ManageCommonCategoriesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageCommonCategoriesResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/common-categories/{category_id} DELETE Method
+  ManageCommonCategoryIdDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageCommonCategoryIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/review-perspectives GET Method
+  ManageReviewPerspectivesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageReviewPerspectivesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/review-perspectives POST Method
+  ManageReviewPerspectivesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageReviewPerspectivesResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/review-perspectives/{perspective_id} DELETE Method
+  ManageReviewPerspectiveIdDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageReviewPerspectiveIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings GET Method
+  ManageRagSettingsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings POST Method
+  ManageRagSettingsPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings/{rag_id} PUT Method
+  ManageRagSettingIdPutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings/{rag_id} DELETE Method
+  ManageRagSettingIdDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/prompt-template PUT Method
+  ManageProjectPromptTemplatePutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectPromptTemplateResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref ConfigManagerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # === CORS OPTIONS Methods ===
+
+  # /manage OPTIONS Method
+  ManageOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects OPTIONS Method
+  ManageProjectsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id} OPTIONS Method
+  ManageProjectIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/categories OPTIONS Method
+  ManageProjectCategoriesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectCategoriesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/categories/{category_id} OPTIONS Method
+  ManageProjectCategoryIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectCategoryIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/common-categories OPTIONS Method
+  ManageCommonCategoriesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageCommonCategoriesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/common-categories/{category_id} OPTIONS Method
+  ManageCommonCategoryIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageCommonCategoryIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/review-perspectives OPTIONS Method
+  ManageReviewPerspectivesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageReviewPerspectivesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/review-perspectives/{perspective_id} OPTIONS Method
+  ManageReviewPerspectiveIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageReviewPerspectiveIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings OPTIONS Method
+  ManageRagSettingsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/rag-settings/{rag_id} OPTIONS Method
+  ManageRagSettingIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageRagSettingIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # /manage/projects/{project_id}/prompt-template OPTIONS Method
+  ManageProjectPromptTemplateOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref ManageProjectPromptTemplateResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # === LAMBDA PERMISSIONS ===
+
+  ConfigManagerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ConfigManagerLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*/*"
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  ManageResourceId:
+    Description: "Manage Resource ID"
+    Value: !Ref ManageResource
+    Export:
+      Name: !Sub "${AWS::StackName}-ManageResourceId"
+      
+  MethodsCount:
+    Description: "Number of methods implemented in this module"
+    Value: "25" 

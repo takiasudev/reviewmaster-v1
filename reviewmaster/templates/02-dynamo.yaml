@@ -1,0 +1,231 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/goformation/v5.2.9/schema/cloudformation.schema.json
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster Database Module - DynamoDB Tables for Config Management and Review Records'
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Default: ""
+  ResourceSuffix:
+    Type: String
+    Default: ""
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagName4, ""]]
+
+Resources:
+  # Config Management DynamoDB Table
+  ManageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ResourcePrefix}reviewmaster-config-dynamo${ResourceSuffix}"
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 2
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: type
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: type-index
+          KeySchema:
+            - AttributeName: type
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 2
+            WriteCapacityUnits: 2
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: false
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Database"
+        - Key: "Purpose"
+          Value: "ConfigManagement"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+  # Review Records DynamoDB Table
+  # Note: E3039 linter error is a false positive due to GSI attribute requirements
+  UnifiedTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ResourcePrefix}reviewmaster-result-dynamo${ResourceSuffix}"
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 6
+        WriteCapacityUnits: 6
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: project_id
+          AttributeType: S
+        - AttributeName: current_status
+          AttributeType: S
+        - AttributeName: category_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI_Currentstatus
+          KeySchema:
+            - AttributeName: current_status
+              KeyType: HASH
+            - AttributeName: PK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 2
+            WriteCapacityUnits: 2
+        - IndexName: GSI_Categoryname
+          KeySchema:
+            - AttributeName: category_name
+              KeyType: HASH
+            - AttributeName: PK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 2
+            WriteCapacityUnits: 2
+        - IndexName: GSI_ProjectId
+          KeySchema:
+            - AttributeName: project_id
+              KeyType: HASH
+            - AttributeName: PK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 2
+            WriteCapacityUnits: 2
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: false
+      DeletionProtectionEnabled: false
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Database"
+        - Key: "Purpose"
+          Value: "ReviewRecords"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+Outputs:
+  ManageTableName:
+    Description: "Config Management DynamoDB Table Name"
+    Value: !Ref ManageTable
+    Export:
+      Name: !Sub "${AWS::StackName}-ManageTableName"
+      
+  ManageTableArn:
+    Description: "Config Management DynamoDB Table ARN"
+    Value: !GetAtt ManageTable.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ManageTableArn"
+      
+  UnifiedTableName:
+    Description: "Review Records DynamoDB Table Name"
+    Value: !Ref UnifiedTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UnifiedTableName"
+      
+  UnifiedTableArn:
+    Description: "Review Records DynamoDB Table ARN"
+    Value: !GetAtt UnifiedTable.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UnifiedTableArn" 

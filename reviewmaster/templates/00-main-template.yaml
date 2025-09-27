@@ -1,0 +1,673 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster Complete Infrastructure - Nested Template Main'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # === Core Configuration ===
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names (e.g., dev-, prod-)"
+  
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names (e.g., -v1, -test)"
+  
+  AllowedIpRanges:
+    Type: CommaDelimitedList
+    Description: "Allowed IP ranges in CIDR format (comma-separated)"
+    Default: "0.0.0.0/0"
+  
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    Description: "CloudWatch Logs retention period in days"
+  
+  BedrockModelArn:
+    Type: String
+    Default: "claude-3-5-sonnet-20240620-v1:0"
+    Description: "Bedrock model ARN for AI processing"
+  
+  RagModelArn:
+    Type: String
+    Default: "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    Description: "RAG search model ARN for document retrieval"
+  
+  CloudFrontDomain:
+    Type: String
+    Default: ""
+    Description: "CloudFront Distribution Domain (auto-filled in Phase 2)"
+  
+  # === Template URLs ===
+  TemplateBaseUrl:
+    Type: String
+    Description: "Base URL for nested templates (S3 bucket URL)"
+  
+  # === Custom Tags ===
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+# =====================================================================================================================
+# CONDITIONS SECTION - None required for main template (conditions handled in individual modules)
+# =====================================================================================================================
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+  # =====================================================================================================================
+  # 1. Storage Module - S3 Buckets
+  # =====================================================================================================================
+  StorageStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/01-s3.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        CloudFrontDomain: !Ref CloudFrontDomain
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Storage"
+
+  # =====================================================================================================================
+  # 2. Database Module - DynamoDB Tables
+  # =====================================================================================================================
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/02-dynamo.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Database"
+
+  # =====================================================================================================================
+  # 3. IAM Module - Roles and Policies
+  # =====================================================================================================================
+  IAMStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - StorageStack
+      - DatabaseStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/03-iam.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        BackendBucketArn: !GetAtt StorageStack.Outputs.BackendBucketArn
+        ManageTableArn: !GetAtt DatabaseStack.Outputs.ManageTableArn
+        UnifiedTableArn: !GetAtt DatabaseStack.Outputs.UnifiedTableArn
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+
+  # =====================================================================================================================
+  # 4. Lambda Module - Functions and Log Groups
+  # =====================================================================================================================
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - StorageStack
+      - DatabaseStack
+      - IAMStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/04-lambda.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        LogRetentionDays: !Ref LogRetentionDays
+        BedrockModelArn: !Ref BedrockModelArn
+        RagModelArn: !Ref RagModelArn
+        CloudFrontDomain: !Ref CloudFrontDomain
+        S3BackendBucketName: !GetAtt StorageStack.Outputs.BackendBucketName
+        ManageTableName: !GetAtt DatabaseStack.Outputs.ManageTableName
+        UnifiedTableName: !GetAtt DatabaseStack.Outputs.UnifiedTableName
+        FileStorageRoleArn: !GetAtt IAMStack.Outputs.FileStorageRoleArn
+        ReviewRequestRoleArn: !GetAtt IAMStack.Outputs.ReviewRequestRoleArn
+        RagSearchRoleArn: !GetAtt IAMStack.Outputs.RagSearchRoleArn
+        ResultCheckerRoleArn: !GetAtt IAMStack.Outputs.ResultCheckerRoleArn
+        ConfigManagerRoleArn: !GetAtt IAMStack.Outputs.ConfigManagerRoleArn
+        RevisionCheckerRoleArn: !GetAtt IAMStack.Outputs.RevisionCheckerRoleArn
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Lambda"
+
+  # =====================================================================================================================
+  # 5. EventBridge Module - S3 Trigger Rules
+  # =====================================================================================================================
+  EventBridgeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - StorageStack
+      - LambdaStack
+      - IAMStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/07-eventbridge.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        S3BackendBucketName: !GetAtt StorageStack.Outputs.BackendBucketName
+        ReviewRequestLambdaArn: !GetAtt LambdaStack.Outputs.ReviewRequestLambdaArn
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+        EventBridgeRoleArn: !GetAtt IAMStack.Outputs.EventBridgeRoleArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "EventBridge"
+
+  # =====================================================================================================================
+  # 6. API Gateway Module - Base API
+  # =====================================================================================================================
+  APIGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - LambdaStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/05-api-gateway.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        AllowedIpRanges: !Join [",", !Ref AllowedIpRanges]
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API"
+
+  # =====================================================================================================================
+  # 7. API Resource Modules - Individual API Endpoints
+  # =====================================================================================================================
+  
+  # Upload API
+  APIUploadStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-01-api-upload.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        FileStorageLambdaArn: !GetAtt LambdaStack.Outputs.FileStorageLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Upload"
+
+  # Manage API
+  APIManageStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-02-api-manage.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        ConfigManagerLambdaArn: !GetAtt LambdaStack.Outputs.ConfigManagerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Manage"
+
+  APILicenseStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-16-api-license.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        ConfigManagerLambdaArn: !GetAtt LambdaStack.Outputs.ConfigManagerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-License"
+
+  # Reviews API
+  APIReviewsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-03-api-reviews.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Reviews"
+
+  # Review Point Add API
+  APIReviewPointAddStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-04-api-review-point-add.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-ReviewPointAdd"
+
+  # Review Point Update API
+  APIReviewPointUpdateStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-05-api-review-point-update.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-ReviewPointUpdate"
+
+  # Review Delete API
+  APIReviewDeleteStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-06-api-review-delete.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-ReviewDelete"
+
+  # Result API
+  APIResultStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-07-api-result.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        ResultCheckerLambdaArn: !GetAtt LambdaStack.Outputs.ResultCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Result"
+
+  # Status API
+  APIStatusStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-08-api-status.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        ResultCheckerLambdaArn: !GetAtt LambdaStack.Outputs.ResultCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Status"
+
+  # Download API
+  APIDownloadStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-09-api-download.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        ResultCheckerLambdaArn: !GetAtt LambdaStack.Outputs.ResultCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-Download"
+
+  # Project Overview API
+  APIProjectOverviewStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-10-api-project-overview.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-ProjectOverview"
+
+  # Review History API
+  APIReviewHistoryStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-11-api-review-history.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-ReviewHistory"
+
+  # Revision Upload API
+  APIRevisionUploadStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-12-api-revision-upload.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-RevisionUpload"
+
+  # Revision Status API
+  APIRevisionStatusStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-13-api-revision-status.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-RevisionStatus"
+
+  # Revision Result API
+  APIRevisionResultStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-14-api-revision-result.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        RevisionCheckerLambdaArn: !GetAtt LambdaStack.Outputs.RevisionCheckerLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-RevisionResult"
+
+  # File Download API
+  APIFileDownloadStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APIGatewayStack
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/api-resource/05-15-api-file-download.yaml"
+      Parameters:
+        RestApiId: !GetAtt APIGatewayStack.Outputs.RestApiId
+        RestApiRootResourceId: !GetAtt APIGatewayStack.Outputs.RestApiRootResourceId
+        FileStorageLambdaArn: !GetAtt LambdaStack.Outputs.FileStorageLambdaArn
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API-FileDownload"
+
+  # =====================================================================================================================
+  # 8. CloudFront Module - Distribution
+  # =====================================================================================================================
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - StorageStack  # S3バケット参照のみ必要
+    Properties:
+      TemplateURL: !Sub "${TemplateBaseUrl}/06-cloudfront.yaml"
+      Parameters:
+        ResourcePrefix: !Ref ResourcePrefix
+        ResourceSuffix: !Ref ResourceSuffix
+        S3FrontendBucketName: !GetAtt StorageStack.Outputs.FrontendBucketName
+        S3FrontendBucketRegionalDomainName: !GetAtt StorageStack.Outputs.FrontendBucketDomainName
+        S3FrontendBucketArn: !GetAtt StorageStack.Outputs.FrontendBucketArn
+        CustomTagName1: !Ref CustomTagName1
+        CustomTagValue1: !Ref CustomTagValue1
+        CustomTagName2: !Ref CustomTagName2
+        CustomTagValue2: !Ref CustomTagValue2
+        CustomTagName3: !Ref CustomTagName3
+        CustomTagValue3: !Ref CustomTagValue3
+        CustomTagName4: !Ref CustomTagName4
+        CustomTagValue4: !Ref CustomTagValue4
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "CloudFront"
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  # === Storage Module Outputs ===
+  FrontendBucketName:
+    Description: "Frontend S3 Bucket Name"
+    Value: !GetAtt StorageStack.Outputs.FrontendBucketName
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucketName"
+      
+  BackendBucketName:
+    Description: "Backend S3 Bucket Name"
+    Value: !GetAtt StorageStack.Outputs.BackendBucketName
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendBucketName"
+
+  # === Database Module Outputs ===
+  ManageTableName:
+    Description: "Config Management DynamoDB Table Name"
+    Value: !GetAtt DatabaseStack.Outputs.ManageTableName
+    Export:
+      Name: !Sub "${AWS::StackName}-ManageTableName"
+      
+  UnifiedTableName:
+    Description: "Review Records DynamoDB Table Name"
+    Value: !GetAtt DatabaseStack.Outputs.UnifiedTableName
+    Export:
+      Name: !Sub "${AWS::StackName}-UnifiedTableName"
+
+  # === API Module Outputs ===
+  ApiGatewayUrl:
+    Description: "API Gateway URL (Backend Access Point)"
+    Value: !GetAtt APIGatewayStack.Outputs.RestApiUrl
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiGatewayUrl"
+      
+  RestApiId:
+    Description: "REST API ID"
+    Value: !GetAtt APIGatewayStack.Outputs.RestApiId
+    Export:
+      Name: !Sub "${AWS::StackName}-RestApiId"
+
+  # === Distribution Module Outputs ===
+  CloudFrontDistributionDomainName:
+    Description: "CloudFront Distribution Domain Name"
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDistributionDomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionDomainName"
+      
+  CloudFrontDistributionUrl:
+    Description: "CloudFront Distribution URL (Frontend Access Point)"
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDistributionUrl
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionUrl"
+
+  # === Summary Output ===
+  DeploymentSummary:
+    Description: "Deployment Summary Information"
+    Value: !Sub |
+      ReviewMaster Infrastructure Deployed Successfully (Nested Template)
+      Frontend URL: ${CloudFrontStack.Outputs.CloudFrontDistributionUrl}
+      API URL: ${APIGatewayStack.Outputs.RestApiUrl}
+      Stack Name: ${AWS::StackName}
+      Region: ${AWS::Region}
+      Deployment Type: Nested Templates
+      Total Stacks: 22 (1 Main + 7 Core + 15 API Resources)
