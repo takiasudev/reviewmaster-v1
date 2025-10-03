@@ -1,0 +1,247 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster CloudFront Distribution Module - Frontend Distribution with OAC and SPA Routing'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # Core Configuration
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names (e.g., dev-, prod-)"
+  
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names (e.g., -v1, -test)"
+
+  # S3 Frontend Bucket Reference
+  S3FrontendBucketName:
+    Type: String
+    Description: "S3 Frontend Bucket Name from Storage module"
+    
+  S3FrontendBucketRegionalDomainName:
+    Type: String
+    Description: "S3 Frontend Bucket Regional Domain Name from Storage module"
+
+  S3FrontendBucketArn:
+    Type: String
+    Description: "S3 Frontend Bucket ARN from Storage module"
+
+  # Custom Tags
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+# =====================================================================================================================
+# CONDITIONS SECTION
+# =====================================================================================================================
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagName4, ""]]
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # === ORIGIN ACCESS CONTROL ===
+
+  # Origin Access Control (OAC) for S3
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ResourcePrefix}reviewmaster-s3-oac${ResourceSuffix}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        Description: "ReviewMaster OAC for S3 Frontend Bucket"
+
+  # === CLOUDFRONT FUNCTION ===
+
+  # CloudFront Function for SPA Routing
+  SPARoutingFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${ResourcePrefix}reviewmaster-spa-routing-function${ResourceSuffix}"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: "ReviewMaster SPA Routing Function for React Router"
+        Runtime: cloudfront-js-1.0
+      FunctionCode: |
+        function handler(event) {
+            var request = event.request;
+            var uri = request.uri;
+            
+            // Static file extensions
+            var fileExtensions = [
+                '.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', 
+                '.woff', '.woff2', '.ttf', '.eot', '.pdf', '.zip', '.json', '.xml',
+                '.txt', '.csv', '.xlsx', '.docx', '.html', '.htm', '.map'
+            ];
+            
+            // Check if request is for a static file
+            for (var i = 0; i < fileExtensions.length; i++) {
+                if (uri.toLowerCase().indexOf(fileExtensions[i]) !== -1) {
+                    return request;
+                }
+            }
+            
+            // For SPA routing, redirect to index.html
+            request.uri = '/index.html';
+            return request;
+        }
+
+  # === CLOUDFRONT DISTRIBUTION ===
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    DependsOn: SPARoutingFunction
+    Properties:
+      DistributionConfig:
+        Comment: "ReviewMaster Frontend Distribution"
+        DefaultRootObject: "index.html"
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        PriceClass: PriceClass_All
+        
+        Origins:
+          - Id: !Sub "${S3FrontendBucketName}-origin"
+            DomainName: !Ref S3FrontendBucketRegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !Ref OriginAccessControl
+        
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub "${S3FrontendBucketName}-origin"
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6"
+          ResponseHeadersPolicyId: "60669652-455b-4ae9-85a4-c4c02393f86c"
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SPARoutingFunction.FunctionMetadata.FunctionARN
+        
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Distribution"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+  # === S3 BUCKET POLICY ===
+
+  # S3 Bucket Policy Update for CloudFront OAC
+  S3BucketPolicyUpdateForCloudFront:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: CloudFrontDistribution
+    Properties:
+      Bucket: !Ref S3FrontendBucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${S3FrontendBucketArn}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution.Id}"
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: "CloudFront Distribution ID"
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionId"
+      
+  CloudFrontDistributionDomainName:
+    Description: "CloudFront Distribution Domain Name"
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionDomainName"
+      
+  CloudFrontDistributionUrl:
+    Description: "CloudFront Distribution URL (Frontend Access Point)"
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionUrl"
+
+  OriginAccessControlId:
+    Description: "Origin Access Control ID"
+    Value: !Ref OriginAccessControl
+    Export:
+      Name: !Sub "${AWS::StackName}-OriginAccessControlId"
+
+  SPARoutingFunctionArn:
+    Description: "SPA Routing Function ARN"
+    Value: !GetAtt SPARoutingFunction.FunctionMetadata.FunctionARN
+    Export:
+      Name: !Sub "${AWS::StackName}-SPARoutingFunctionArn" 

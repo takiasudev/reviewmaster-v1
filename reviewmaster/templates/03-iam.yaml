@@ -1,0 +1,488 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster IAM Module - Roles and Policies for Lambda Functions'
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Default: ""
+  ResourceSuffix:
+    Type: String
+    Default: ""
+  BackendBucketArn:
+    Type: String
+    Description: "Backend S3 Bucket ARN"
+  ManageTableArn:
+    Type: String
+    Description: "Config Management DynamoDB Table ARN"
+  UnifiedTableArn:
+    Type: String
+    Description: "Unified Review DynamoDB Table ARN"
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagValue4, ""]]
+
+Resources:
+  # File Storage Lambda Policy
+  FileStorageLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-file-storage-iampolicy${ResourceSuffix}"
+      Description: "S3 access policy for file storage Lambda function"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:PutObject"
+              - "s3:GetObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Ref BackendBucketArn
+              - !Sub "${BackendBucketArn}/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+            Resource: 
+              - !Ref ManageTableArn
+              - !Sub "${ManageTableArn}/index/*"
+
+  FileStorageRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-file-storage-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref FileStorageLambdaPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "FileStorage"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+  # Review Request Lambda Policy
+  ReviewRequestPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-review-request-iampolicy${ResourceSuffix}"
+      Description: "ReviewMaster review-request Lambda function policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Resource: 
+              - !Ref BackendBucketArn
+              - !Sub "${BackendBucketArn}/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+            Resource: 
+              - !Ref UnifiedTableArn
+              - !Sub "${UnifiedTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+            Resource: 
+              - !Ref ManageTableArn
+              - !Sub "${ManageTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ResourcePrefix}reviewmaster-rag-search-lambda${ResourceSuffix}"
+
+  ReviewRequestRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-review-request-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref ReviewRequestPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "ReviewRequest"
+
+  # RAG Search Lambda Policy
+  RagSearchPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-rag-search-iampolicy${ResourceSuffix}"
+      Description: "ReviewMaster rag-search Lambda function policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:GetInferenceProfile
+              - bedrock:ListInferenceProfiles
+              - bedrock:Retrieve
+              - bedrock:RetrieveAndGenerate
+            Resource: "*"
+
+  RagSearchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-rag-search-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref RagSearchPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "RagSearch"
+
+  # Result Checker Lambda Policy
+  ResultCheckerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-result-checker-iampolicy${ResourceSuffix}"
+      Description: "ReviewMaster result-checker Lambda function policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource: 
+              - !Ref UnifiedTableArn
+              - !Sub "${UnifiedTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+            Resource: 
+              - !Ref ManageTableArn
+              - !Sub "${ManageTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:PutObjectTagging
+              - s3:GetObject
+              - s3:GetObjectTagging
+              - s3:ListBucket
+            Resource:
+              - !Ref BackendBucketArn
+              - !Sub "${BackendBucketArn}/*"
+
+  ResultCheckerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-result-checker-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref ResultCheckerPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "ResultChecker"
+
+  # Config Manager Lambda Policy
+  ConfigManagerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-config-manager-iampolicy${ResourceSuffix}"
+      Description: "ReviewMaster config-manager Lambda function policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource: 
+              - !Ref ManageTableArn
+              - !Sub "${ManageTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource: 
+              - !Ref UnifiedTableArn
+              - !Sub "${UnifiedTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+              - s3:DeleteObject
+            Resource:
+              - !Ref BackendBucketArn
+              - !Sub "${BackendBucketArn}/*"
+
+  ConfigManagerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-config-manager-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref ConfigManagerPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "ConfigManager"
+
+  # Revision Checker Lambda Policy
+  RevisionCheckerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ResourcePrefix}reviewmaster-revision-checker-iampolicy${ResourceSuffix}"
+      Description: "ReviewMaster revision-checker Lambda function policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:Query
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:Scan
+            Resource: 
+              - !Ref UnifiedTableArn
+              - !Sub "${UnifiedTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+            Resource: 
+              - !Ref ManageTableArn
+              - !Sub "${ManageTableArn}/index/*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+              - s3:DeleteObject
+            Resource: 
+              - !Ref BackendBucketArn
+              - !Sub "${BackendBucketArn}/*"
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+            Resource: "*"
+
+  RevisionCheckerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-revision-checker-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref RevisionCheckerPolicy
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "RevisionChecker"
+
+  # EventBridge Role for Lambda invocation
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}reviewmaster-eventbridge-iamrole${ResourceSuffix}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: "*"
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "IAM"
+        - Key: "Purpose"
+          Value: "EventBridge"
+
+Outputs:
+  FileStorageRoleArn:
+    Description: "File Storage Lambda Role ARN"
+    Value: !GetAtt FileStorageRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FileStorageRoleArn"
+      
+  ReviewRequestRoleArn:
+    Description: "Review Request Lambda Role ARN"
+    Value: !GetAtt ReviewRequestRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ReviewRequestRoleArn"
+      
+  RagSearchRoleArn:
+    Description: "RAG Search Lambda Role ARN"
+    Value: !GetAtt RagSearchRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RagSearchRoleArn"
+      
+  ResultCheckerRoleArn:
+    Description: "Result Checker Lambda Role ARN"
+    Value: !GetAtt ResultCheckerRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ResultCheckerRoleArn"
+      
+  ConfigManagerRoleArn:
+    Description: "Config Manager Lambda Role ARN"
+    Value: !GetAtt ConfigManagerRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ConfigManagerRoleArn"
+      
+  RevisionCheckerRoleArn:
+    Description: "Revision Checker Lambda Role ARN"
+    Value: !GetAtt RevisionCheckerRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RevisionCheckerRoleArn"
+      
+  EventBridgeRoleArn:
+    Description: "EventBridge Role ARN"
+    Value: !GetAtt EventBridgeRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-EventBridgeRoleArn" 

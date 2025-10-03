@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster EventBridge Module - S3 trigger rules for Lambda functions'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # Core Configuration
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names (e.g., dev-, prod-)"
+  
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names (e.g., -v1, -test)"
+
+  # Dependencies from other modules
+  S3BackendBucketName:
+    Type: String
+    Description: "Backend S3 Bucket Name from Storage module"
+    
+  ReviewRequestLambdaArn:
+    Type: String
+    Description: "Review Request Lambda Function ARN from Lambda module"
+    
+  RevisionCheckerLambdaArn:
+    Type: String
+    Description: "Revision Checker Lambda Function ARN from Lambda module"
+
+  EventBridgeRoleArn:
+    Type: String
+    Description: "EventBridge IAM Role ARN from IAM module"
+
+# =====================================================================================================================
+# CONDITIONS SECTION - None required for this template
+# =====================================================================================================================
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # === EventBridge Rule for Review Request (S3 Object Created in original folder) ===
+  S3ToReviewRequestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ResourcePrefix}reviewmaster-s3-to-review-request-rule${ResourceSuffix}"
+      EventPattern:
+        source:
+          - "aws.s3"
+        detail-type:
+          - "Object Created"
+        detail:
+          bucket:
+            name:
+              - !Ref S3BackendBucketName
+          object:
+            key:
+              - wildcard: "projects/*/reviews/*/original/*"
+      State: ENABLED
+      EventBusName: default
+      Targets:
+        - Id: ReviewRequestLambdaTarget
+          Arn: !Ref ReviewRequestLambdaArn
+          RoleArn: !Ref EventBridgeRoleArn
+
+  # === EventBridge Rule for Revision Checker (S3 Object Created in revisions folder) ===
+  S3ToRevisionCheckerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ResourcePrefix}reviewmaster-s3-to-revision-checker-rule${ResourceSuffix}"
+      EventPattern:
+        source:
+          - "aws.s3"
+        detail-type:
+          - "Object Created"
+        detail:
+          bucket:
+            name:
+              - !Ref S3BackendBucketName
+          object:
+            key:
+              - wildcard: "projects/*/reviews/*/revisions/*/documents/*"
+      State: ENABLED
+      EventBusName: default
+      Targets:
+        - Id: RevisionCheckerLambdaTarget
+          Arn: !Ref RevisionCheckerLambdaArn
+          RoleArn: !Ref EventBridgeRoleArn
+
+  # === Lambda Permissions for EventBridge ===
+  ReviewRequestLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ReviewRequestLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3ToReviewRequestRule.Arn
+
+  RevisionCheckerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RevisionCheckerLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3ToRevisionCheckerRule.Arn
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  ReviewRequestEventRuleArn:
+    Description: "Review Request EventBridge Rule ARN"
+    Value: !GetAtt S3ToReviewRequestRule.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ReviewRequestEventRuleArn"
+      
+  RevisionCheckerEventRuleArn:
+    Description: "Revision Checker EventBridge Rule ARN"
+    Value: !GetAtt S3ToRevisionCheckerRule.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RevisionCheckerEventRuleArn"
+      
+  ReviewRequestEventRuleName:
+    Description: "Review Request EventBridge Rule Name"
+    Value: !Ref S3ToReviewRequestRule
+    Export:
+      Name: !Sub "${AWS::StackName}-ReviewRequestEventRuleName"
+      
+  RevisionCheckerEventRuleName:
+    Description: "Revision Checker EventBridge Rule Name"
+    Value: !Ref S3ToRevisionCheckerRule
+    Export:
+      Name: !Sub "${AWS::StackName}-RevisionCheckerEventRuleName" 

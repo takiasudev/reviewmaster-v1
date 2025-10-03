@@ -1,0 +1,587 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster Lambda Functions Module - All Lambda functions with CloudWatch Log Groups'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # Core Configuration
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names (e.g., dev-, prod-)"
+  
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names (e.g., -v1, -test)"
+  
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    Description: "CloudWatch Logs retention period in days"
+  
+  BedrockModelArn:
+    Type: String
+    Default: "claude-3-5-sonnet-20240620-v1:0"
+    Description: "Bedrock model ARN for AI processing"
+  
+  RagModelArn:
+    Type: String
+    Default: "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    Description: "RAG search model ARN for document retrieval"
+  
+  CloudFrontDomain:
+    Type: String
+    Default: ""
+    Description: "CloudFront Distribution Domain (auto-filled in Phase 2)"
+  
+
+  # References from other modules
+  S3BackendBucketName:
+    Type: String
+    Description: "Backend S3 Bucket Name from Storage module"
+    
+  ManageTableName:
+    Type: String
+    Description: "Config Management DynamoDB Table Name from Database module"
+    
+  UnifiedTableName:
+    Type: String
+    Description: "Review Records DynamoDB Table Name from Database module"
+
+  # IAM Role ARNs from IAM module
+  FileStorageRoleArn:
+    Type: String
+    Description: "File Storage Role ARN from IAM module"
+    
+  ReviewRequestRoleArn:
+    Type: String
+    Description: "Review Request Role ARN from IAM module"
+    
+  RagSearchRoleArn:
+    Type: String
+    Description: "RAG Search Role ARN from IAM module"
+    
+  ResultCheckerRoleArn:
+    Type: String
+    Description: "Result Checker Role ARN from IAM module"
+    
+  ConfigManagerRoleArn:
+    Type: String
+    Description: "Config Manager Role ARN from IAM module"
+    
+  RevisionCheckerRoleArn:
+    Type: String
+    Description: "Revision Checker Role ARN from IAM module"
+
+  # Custom Tags
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+# =====================================================================================================================
+# CONDITIONS SECTION
+# =====================================================================================================================
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagName4, ""]]
+  HasCloudFrontDomain: !Not [!Equals [!Ref CloudFrontDomain, ""]]
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # === CLOUDWATCH LOG GROUPS ===
+
+  FileStorageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-file-storage-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "file-storage"
+
+  ReviewRequestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-review-request-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "review-request"
+
+  RagSearchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-rag-search-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "rag-search"
+
+  ResultCheckerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-result-checker-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "result-checker"
+
+  ConfigManagerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-config-manager-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "config-manager"
+
+  RevisionCheckerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResourcePrefix}reviewmaster-revision-checker-lambda${ResourceSuffix}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "revision-checker"
+
+  # === LAMBDA FUNCTIONS ===
+
+  FileStorageLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: FileStorageLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-file-storage-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref FileStorageRoleArn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3BackendBucketName
+          MANAGE_TABLE_NAME: !Ref ManageTableName
+          EXPIRES_IN_TIME: "300"
+          REGION_NAME: !Ref "AWS::Region"
+          ALLOWED_ORIGINS: !If
+            - HasCloudFrontDomain
+            - !Sub "https://${CloudFrontDomain}"
+            - "*"
+          LOG_LEVEL: "INFO"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('File storage function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "file-storage"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+  FileStorageEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref FileStorageLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+  ReviewRequestLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: ReviewRequestLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-review-request-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref ReviewRequestRoleArn
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3BackendBucketName
+          MANAGE_TABLE_NAME: !Ref ManageTableName
+          RAG_ENABLED: "true"
+          RAG_SEARCH_FUNCTION: !Sub "${ResourcePrefix}reviewmaster-rag-search-lambda${ResourceSuffix}"
+          BEDROCK_REGION: !Ref "AWS::Region"
+          BEDROCK_MODEL: !Ref BedrockModelArn
+          LOG_LEVEL: "INFO"
+          UNIFIED_TABLE_NAME: !Ref UnifiedTableName
+          ALLOWED_ORIGINS: !If
+            - HasCloudFrontDomain
+            - !Sub "https://${CloudFrontDomain}"
+            - "*"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Review request function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "review-request"
+
+  ReviewRequestEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref ReviewRequestLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+  RagSearchLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: RagSearchLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-rag-search-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref RagSearchRoleArn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          BEDROCK_REGION: !Ref "AWS::Region"
+          RAG_MODEL_ARN: !Ref RagModelArn
+          LOG_LEVEL: "INFO"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('RAG search function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "rag-search"
+
+  RagSearchEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref RagSearchLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+  ResultCheckerLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: ResultCheckerLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-result-checker-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref ResultCheckerRoleArn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          MANAGE_TABLE_NAME: !Ref ManageTableName
+          UNIFIED_TABLE_NAME: !Ref UnifiedTableName
+          S3_BUCKET: !Ref S3BackendBucketName
+          LOG_LEVEL: "INFO"
+          ALLOWED_ORIGINS: !If
+            - HasCloudFrontDomain
+            - !Sub "https://${CloudFrontDomain}"
+            - "*"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Result checker function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "result-checker"
+
+  ResultCheckerEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref ResultCheckerLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+  ConfigManagerLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: ConfigManagerLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-config-manager-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref ConfigManagerRoleArn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          MANAGE_TABLE_NAME: !Ref ManageTableName
+          UNIFIED_TABLE_NAME: !Ref UnifiedTableName
+          S3_BUCKET: !Ref S3BackendBucketName
+          LOG_LEVEL: "DEBUG"
+          ALLOWED_ORIGINS: !If
+            - HasCloudFrontDomain
+            - !Sub "https://${CloudFrontDomain}"
+            - "*"
+          LICENSE_SERVER_API_URL: "https://d2oagnf8w7.execute-api.ap-northeast-1.amazonaws.com/api"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Config manager function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "config-manager"
+
+  ConfigManagerEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref ConfigManagerLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+  RevisionCheckerLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: RevisionCheckerLogGroup
+    Properties:
+      FunctionName: !Sub "${ResourcePrefix}reviewmaster-revision-checker-lambda${ResourceSuffix}"
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Ref RevisionCheckerRoleArn
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3BackendBucketName
+          MANAGE_TABLE_NAME: !Ref ManageTableName
+          UNIFIED_TABLE_NAME: !Ref UnifiedTableName
+          BEDROCK_REGION: !Ref "AWS::Region"
+          BEDROCK_MODEL: !Ref BedrockModelArn
+          TTL_DAYS: "365"
+          LOG_LEVEL: "INFO"
+          ALLOWED_ORIGINS: !If
+            - HasCloudFrontDomain
+            - !Sub "https://${CloudFrontDomain}"
+            - "*"
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Revision checker function placeholder - Deploy actual code separately')
+              }
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Compute"
+        - Key: "Function"
+          Value: "revision-checker" 
+
+  RevisionCheckerEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref RevisionCheckerLambda
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 0
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  # Lambda Function ARNs
+  FileStorageLambdaArn:
+    Description: "File Storage Lambda Function ARN"
+    Value: !GetAtt FileStorageLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FileStorageLambdaArn"
+
+  ReviewRequestLambdaArn:
+    Description: "Review Request Lambda Function ARN"
+    Value: !GetAtt ReviewRequestLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ReviewRequestLambdaArn"
+
+  RagSearchLambdaArn:
+    Description: "RAG Search Lambda Function ARN"
+    Value: !GetAtt RagSearchLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RagSearchLambdaArn"
+
+  ResultCheckerLambdaArn:
+    Description: "Result Checker Lambda Function ARN"
+    Value: !GetAtt ResultCheckerLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ResultCheckerLambdaArn"
+
+  ConfigManagerLambdaArn:
+    Description: "Config Manager Lambda Function ARN"
+    Value: !GetAtt ConfigManagerLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ConfigManagerLambdaArn"
+
+  RevisionCheckerLambdaArn:
+    Description: "Revision Checker Lambda Function ARN"
+    Value: !GetAtt RevisionCheckerLambda.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RevisionCheckerLambdaArn"
+
+  # Lambda Function Names
+  FileStorageLambdaName:
+    Description: "File Storage Lambda Function Name"
+    Value: !Ref FileStorageLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-FileStorageLambdaName"
+
+  ReviewRequestLambdaName:
+    Description: "Review Request Lambda Function Name"
+    Value: !Ref ReviewRequestLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-ReviewRequestLambdaName"
+
+  RagSearchLambdaName:
+    Description: "RAG Search Lambda Function Name"
+    Value: !Ref RagSearchLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-RagSearchLambdaName"
+
+  ResultCheckerLambdaName:
+    Description: "Result Checker Lambda Function Name"
+    Value: !Ref ResultCheckerLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-ResultCheckerLambdaName"
+
+  ConfigManagerLambdaName:
+    Description: "Config Manager Lambda Function Name"
+    Value: !Ref ConfigManagerLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-ConfigManagerLambdaName"
+
+  RevisionCheckerLambdaName:
+    Description: "Revision Checker Lambda Function Name"
+    Value: !Ref RevisionCheckerLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-RevisionCheckerLambdaName"

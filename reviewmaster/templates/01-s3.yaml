@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster Storage Module - S3 Buckets for Frontend and Backend'
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Default: ""
+  ResourceSuffix:
+    Type: String
+    Default: ""
+  CloudFrontDomain:
+    Type: String
+    Default: ""
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagName4, ""]]
+  HasCloudFrontDomain: !Not [!Equals [!Ref CloudFrontDomain, ""]]
+
+Resources:
+  # Frontend S3 Bucket (React Application Storage)
+  S3FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ResourcePrefix}reviewmaster-frontend-s3-${AWS::AccountId}${ResourceSuffix}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Suspended
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Storage"
+        - Key: "Purpose"
+          Value: "Frontend"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+  # Backend S3 Bucket (API File Storage)
+  S3BackendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ResourcePrefix}reviewmaster-backend-s3-${AWS::AccountId}${ResourceSuffix}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Suspended
+      LifecycleConfiguration:
+        Rules:
+          - Id: excel-auto-deletion-1day
+            Status: Enabled
+            Prefix: "excel/"
+            ExpirationInDays: 1
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - !If
+                - HasCloudFrontDomain
+                - !Sub "https://${CloudFrontDomain}"
+                - "https://temp-domain-for-phase1.example.com"
+            ExposedHeaders:
+              - ETag
+              - x-amz-meta-temperature
+              - x-amz-meta-project-id
+              - x-amz-meta-category-id
+              - x-amz-meta-category-name
+              - x-amz-meta-timestamp
+              - x-amz-meta-file-name
+              - x-amz-meta-custom-prompt
+              - x-amz-meta-rag-id
+            MaxAge: 3000
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "Storage"
+        - Key: "Purpose"
+          Value: "Backend"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+Outputs:
+  FrontendBucketName:
+    Description: "Frontend S3 Bucket Name"
+    Value: !Ref S3FrontendBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucketName"
+      
+  FrontendBucketArn:
+    Description: "Frontend S3 Bucket ARN"
+    Value: !GetAtt S3FrontendBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucketArn"
+      
+  FrontendBucketDomainName:
+    Description: "Frontend S3 Bucket Domain Name"
+    Value: !GetAtt S3FrontendBucket.RegionalDomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucketDomainName"
+      
+  BackendBucketName:
+    Description: "Backend S3 Bucket Name"
+    Value: !Ref S3BackendBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendBucketName"
+      
+  BackendBucketArn:
+    Description: "Backend S3 Bucket ARN"
+    Value: !GetAtt S3BackendBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendBucketArn" 
