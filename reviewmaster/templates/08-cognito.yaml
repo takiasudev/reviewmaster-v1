@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster - Cognito User Pool for User Management'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names"
+  
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names"
+  
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+  # =====================================================================================================================
+  # Cognito User Pool
+  # =====================================================================================================================
+  ReviewMasterUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ResourcePrefix}reviewmaster-users${ResourceSuffix}"
+      
+      # メールアドレスを自動検証
+      AutoVerifiedAttributes:
+        - email
+      
+      # パスワードポリシー
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      
+      # アカウント回復設定（メールのみ）
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      
+      # メール設定（Cognitoデフォルトを使用）
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      
+      # ユーザー招待メッセージのカスタマイズ
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailSubject: "[ReviewMaster] アカウント作成のお知らせ - 仮パスワード"
+          EmailMessage: "ReviewMaster へようこそ！<br><br>あなたのアカウントが作成されました。<br>以下の情報でログインしてください：<br><br>━━━━━━━━━━━━━━━━━━━━━━━━━━<br>ログインID（メールアドレス）: {username}<br>仮パスワード: {####}<br>━━━━━━━━━━━━━━━━━━━━━━━━━━<br><br>【重要】<br>- 初回ログイン時に新しいパスワードの設定が必要です<br>- 仮パスワードは7日間有効です<br>- セキュリティのため、このメールは削除せずに保管してください<br><br>【ログイン方法】<br>1. フロントエンドURLにアクセス<br>2. 上記のメールアドレスと仮パスワードを入力<br>3. 新しいパスワードを設定<br><br>ご不明な点がございましたら、システム管理者にお問い合わせください。<br><br>※このメールに心当たりがない場合は、管理者にご連絡ください。"
+      
+      # ユーザー属性更新時の検証（メール変更時に再検証）
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      
+      # MFA無効（梅案では不要）
+      MfaConfiguration: "OFF"
+      
+      # ログイン方式（メールアドレスでログイン）
+      UsernameAttributes:
+        - email
+      
+      # ユーザー属性スキーマ
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      
+      # タグ設定
+      UserPoolTags:
+        Project: "ReviewMaster"
+        Environment: "prod"
+        Module: "Cognito"
+        ManagedBy: "CloudFormation"
+
+  # =====================================================================================================================
+  # Cognito User Pool Client
+  # =====================================================================================================================
+  ReviewMasterUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ResourcePrefix}reviewmaster-web-client${ResourceSuffix}"
+      UserPoolId: !Ref ReviewMasterUserPool
+      
+      # 認証フロー設定
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH     # ユーザー名・パスワード認証
+        - ALLOW_REFRESH_TOKEN_AUTH     # リフレッシュトークン認証
+      
+      # クライアントシークレット不要（SPAのため）
+      GenerateSecret: false
+      
+      # トークン有効期限
+      RefreshTokenValidity: 1  # 1日
+      AccessTokenValidity: 60  # 60分
+      IdTokenValidity: 60      # 60分
+      TokenValidityUnits:
+        RefreshToken: days
+        AccessToken: minutes
+        IdToken: minutes
+      
+      # 読み取り可能な属性
+      ReadAttributes:
+        - email
+        - email_verified
+      
+      # 書き込み可能な属性
+      WriteAttributes:
+        - email
+      
+      # トークン失効設定
+      PreventUserExistenceErrors: ENABLED
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref ReviewMasterUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+  
+  UserPoolArn:
+    Description: "Cognito User Pool ARN"
+    Value: !GetAtt ReviewMasterUserPool.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolArn"
+  
+  UserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref ReviewMasterUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+  
+  UserPoolName:
+    Description: "Cognito User Pool Name"
+    Value: !Sub "${ResourcePrefix}reviewmaster-users${ResourceSuffix}"

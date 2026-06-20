@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster API My Reviews Module - /my-reviews endpoint resources and methods'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # API Gateway References
+  RestApiId:
+    Type: String
+    Description: "REST API ID from API Gateway module"
+    
+  RestApiRootResourceId:
+    Type: String
+    Description: "REST API Root Resource ID from API Gateway module"
+    
+  # Lambda Function Reference
+  RevisionCheckerLambdaArn:
+    Type: String
+    Description: "Revision Checker Lambda Function ARN from Compute module"
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # === ROOT LEVEL RESOURCE ===
+
+  # /my-reviews リソース
+  MyReviewsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApiId
+      ParentId: !Ref RestApiRootResourceId
+      PathPart: "my-reviews"
+
+  # === METHODS ===
+
+  # /my-reviews GET Method (ログインユーザーの依頼レビュー一覧取得)
+  MyReviewsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref MyReviewsResource
+      HttpMethod: GET
+      AuthorizationType: NONE  # Lambda内で認証処理を行う
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !Ref RevisionCheckerLambdaArn
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # === CORS OPTIONS Methods ===
+
+  # /my-reviews OPTIONS Method
+  MyReviewsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApiId
+      ResourceId: !Ref MyReviewsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # === LAMBDA PERMISSIONS ===
+
+  RevisionCheckerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RevisionCheckerLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*/*"
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  MyReviewsResourceId:
+    Description: "My Reviews Resource ID"
+    Value: !Ref MyReviewsResource
+    Export:
+      Name: !Sub "${AWS::StackName}-MyReviewsResourceId"
+      
+  MethodsCount:
+    Description: "Number of methods implemented in this module"
+    Value: "1"  # GET /my-reviews

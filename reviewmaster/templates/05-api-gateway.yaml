@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ReviewMaster API Gateway Module - Core API Gateway Setup'
+
+# =====================================================================================================================
+# PARAMETERS SECTION
+# =====================================================================================================================
+
+Parameters:
+  # Core Configuration
+  ResourcePrefix:
+    Type: String
+    Default: ""
+    Description: "Prefix for all resource names"
+    
+  ResourceSuffix:
+    Type: String
+    Default: ""
+    Description: "Suffix for all resource names"
+    
+  AllowedIpRanges:
+    Type: CommaDelimitedList
+    Description: "Allowed IP ranges in CIDR format"
+    Default: "0.0.0.0/0"
+
+  # Custom Tags
+  CustomTagName1:
+    Type: String
+    Default: ""
+  CustomTagValue1:
+    Type: String
+    Default: ""
+  CustomTagName2:
+    Type: String
+    Default: ""
+  CustomTagValue2:
+    Type: String
+    Default: ""
+  CustomTagName3:
+    Type: String
+    Default: ""
+  CustomTagValue3:
+    Type: String
+    Default: ""
+  CustomTagName4:
+    Type: String
+    Default: ""
+  CustomTagValue4:
+    Type: String
+    Default: ""
+
+# =====================================================================================================================
+# CONDITIONS SECTION
+# =====================================================================================================================
+
+Conditions:
+  HasCustomTag1: !Not [!Equals [!Ref CustomTagName1, ""]]
+  HasCustomTag2: !Not [!Equals [!Ref CustomTagName2, ""]]
+  HasCustomTag3: !Not [!Equals [!Ref CustomTagName3, ""]]
+  HasCustomTag4: !Not [!Equals [!Ref CustomTagName4, ""]]
+
+# =====================================================================================================================
+# RESOURCES SECTION
+# =====================================================================================================================
+
+Resources:
+
+  # REST API
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${ResourcePrefix}reviewmaster-api-apigateway${ResourceSuffix}"
+      Description: "ドキュメントレビューシステムAPI"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "execute-api:Invoke"
+            Resource: "*"
+            Condition:
+              IpAddress:
+                "aws:SourceIp": !Ref AllowedIpRanges
+          - Effect: Deny
+            Principal: "*"
+            Action: "execute-api:Invoke"
+            Resource: "*"
+            Condition:
+              "ForAllValues:NotIpAddress":
+                "aws:SourceIp": !Ref AllowedIpRanges
+      Tags:
+        - Key: "Project"
+          Value: "ReviewMaster"
+        - Key: "Environment"
+          Value: "prod"
+        - Key: "Module"
+          Value: "API"
+        - !If
+          - HasCustomTag1
+          - Key: !Ref CustomTagName1
+            Value: !Ref CustomTagValue1
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag2
+          - Key: !Ref CustomTagName2
+            Value: !Ref CustomTagValue2
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag3
+          - Key: !Ref CustomTagName3
+            Value: !Ref CustomTagValue3
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasCustomTag4
+          - Key: !Ref CustomTagName4
+            Value: !Ref CustomTagValue4
+          - !Ref "AWS::NoValue"
+
+# =====================================================================================================================
+# OUTPUTS SECTION
+# =====================================================================================================================
+
+Outputs:
+  RestApiId:
+    Description: "REST API ID"
+    Value: !Ref RestApi
+    Export:
+      Name: !Sub "${AWS::StackName}-RestApiId"
+      
+  RestApiRootResourceId:
+    Description: "REST API Root Resource ID"
+    Value: !GetAtt RestApi.RootResourceId
+    Export:
+      Name: !Sub "${AWS::StackName}-RestApiRootResourceId"
+      
+  RestApiUrl:
+    Description: "REST API URL"
+    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: !Sub "${AWS::StackName}-RestApiUrl" 

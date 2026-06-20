@@ -1,0 +1,91 @@
+{
+  "tables": [
+    {
+      "resolve": { "cfnOutputKey": "ManageTableName" },
+      "attributeTypes": { "id": "S", "type": "S", "created_at": "S" },
+      "billingMode": "PROVISIONED",
+      "indexes": [
+        {
+          "IndexName": "type-index",
+          "KeySchema": [
+            { "AttributeName": "type", "KeyType": "HASH" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "type-created-at-index",
+          "KeySchema": [
+            { "AttributeName": "type", "KeyType": "HASH" },
+            { "AttributeName": "created_at", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 1, "WriteCapacityUnits": 1 }
+        }
+      ]
+    },
+    {
+      "resolve": { "cfnOutputKey": "UnifiedTableName" },
+      "attributeTypes": { "PK": "S", "SK": "S", "category_name": "S", "current_status": "S", "project_id": "S", "uploaded_by": "S", "uploaded_at": "S", "completedAt": "S", "submitted_at": "S" },
+      "billingMode": "PROVISIONED",
+      "indexes": [
+        {
+          "IndexName": "GSI_Currentstatus",
+          "KeySchema": [
+            { "AttributeName": "current_status", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_Categoryname",
+          "KeySchema": [
+            { "AttributeName": "category_name", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_ProjectId",
+          "KeySchema": [
+            { "AttributeName": "project_id", "KeyType": "HASH" },
+            { "AttributeName": "PK", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_ReviewList",
+          "KeySchema": [
+            { "AttributeName": "SK", "KeyType": "HASH" },
+            { "AttributeName": "submitted_at", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_ProjectReviewList",
+          "KeySchema": [
+            { "AttributeName": "project_id", "KeyType": "HASH" },
+            { "AttributeName": "submitted_at", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 2, "WriteCapacityUnits": 2 }
+        },
+        {
+          "IndexName": "GSI_UploadedByCompletedAt",
+          "KeySchema": [
+            { "AttributeName": "uploaded_by", "KeyType": "HASH" },
+            { "AttributeName": "completedAt", "KeyType": "RANGE" }
+          ],
+          "Projection": { "ProjectionType": "ALL" },
+          "ProvisionedThroughput": { "ReadCapacityUnits": 1, "WriteCapacityUnits": 1 }
+        }
+      ]
+    }
+  ]
+}
+
+
